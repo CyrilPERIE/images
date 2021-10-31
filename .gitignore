@@ -1,6 +1,6 @@
 # Not wished files
 doc.txt
-data/
+data/*.*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
