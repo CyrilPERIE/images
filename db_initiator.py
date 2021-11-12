@@ -5,10 +5,11 @@ import numpy as np
 from skimage import io
 import cv2
 from sklearn.cluster import KMeans
+from tqdm import tqdm
 
 HOST = 'localhost'
 USER = 'root'
-PASSWORD = 'Cormoran96'
+PASSWORD = getpass('Mot de passe : ')
 DB_NAME = 'images'
 
 create_image_table = """
@@ -51,13 +52,13 @@ dirname = os.path.dirname(__file__)
 filename = os.path.join(dirname,'data/')
 image_data = [tuple(s for s in i.split(',')) for i in os.listdir(filename)]
 
-def dominant_color(path, cluster, centroids):
+def dominant_color(cluster, centroids):
     labels = np.arange(0, len(np.unique(cluster.labels_)) + 1)
     (hist, _) = np.histogram(cluster.labels_, bins = labels)
     hist = hist.astype("float")
     hist /= hist.sum()
     colors = sorted([(percent, color) for (percent, color) in zip(hist, centroids)])
-    red, green, blue = colors[0][1][0], colors[0][1][1], colors[0][1][2]
+    red, green, blue = colors[0][1][2], colors[0][1][1], colors[0][1][0]
     return red, green, blue
 
 def compute_medium_value():
@@ -73,20 +74,22 @@ def compute_medium_value():
                 cursor.execute(get_image_query)
                 paths = cursor.fetchall()
                 colors_data = []
-                for path in paths:
+                print(' > Database fills ...')
+                for path in tqdm(paths):
                     current_id = path[0]
                     image = cv2.imread(path[1])
                     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                     reshape = image.reshape((image.shape[0] * image.shape[1], 3))
                     cluster = KMeans(n_clusters=1).fit(reshape)
-                    red, green, blue = dominant_color(path, cluster, cluster.cluster_centers_)
+                    red, green, blue = dominant_color(cluster, cluster.cluster_centers_)
                     colors_data.append(tuple([red, green, blue, current_id]))
-                print(colors_data)
+                print(' > Saving Database ...')
                 cursor.executemany(insert_medium_color_query, colors_data)
                 connection.commit()
     except Error as e:
         print(e)
 
+print(' > Create database structure...')
 try:
     with connect(
         host=HOST,
@@ -103,3 +106,5 @@ except Error as e:
     print(e)
 
 compute_medium_value()
+
+print(' > Successfully ended!!!')
